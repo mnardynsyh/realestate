@@ -51,13 +51,11 @@ class UnitController extends Controller
         return back()->with('success', 'Unit berhasil ditambahkan.');
     }
 
-    /* =============================
-       UPDATE DATA (TANPA FOTO)
-    ==============================*/
     public function update(Request $request, $id)
     {
         $unit = Unit::findOrFail($id);
 
+        // 1. Validasi
         $data = $request->validate([
             'housing_location_id' => 'required|exists:housing_locations,id',
             'block_number'        => 'required|string',
@@ -67,33 +65,24 @@ class UnitController extends Controller
             'building_area'       => 'required|numeric',
             'description'         => 'nullable|string',
             'status'              => 'required|in:available,booked,sold',
+            'image'               => 'nullable|image|max:10240',
         ]);
 
+        // 2. Cek apakah user mengupload foto baru?
+        if ($request->hasFile('image')) {
+            // Hapus foto lama dari penyimpanan jika ada
+            if ($unit->image && Storage::disk('public')->exists($unit->image)) {
+                Storage::disk('public')->delete($unit->image);
+            }
+
+            // Simpan foto baru & masukkan path-nya ke array $data
+            $data['image'] = $request->file('image')->store('units', 'public');
+        }
+
+        // 3. Update database
         $unit->update($data);
 
         return back()->with('success', 'Data unit berhasil diperbarui.');
-    }
-
-    /* =============================
-       UPDATE FOTO (KHUSUS FOTO)
-    ==============================*/
-    public function updateImage(Request $request, $id)
-    {
-        $unit = Unit::findOrFail($id);
-
-        $request->validate([
-            'image' => 'required|image|max:10240',
-        ]);
-
-        if ($unit->image && Storage::disk('public')->exists($unit->image)) {
-            Storage::disk('public')->delete($unit->image);
-        }
-
-        $unit->update([
-            'image' => $request->file('image')->store('units', 'public'),
-        ]);
-
-        return back()->with('success', 'Foto unit berhasil diperbarui.');
     }
 
     /* =============================
